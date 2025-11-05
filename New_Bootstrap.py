@@ -499,3 +499,337 @@ class MegaUltimateBootstrap:
     
     # END OF PART 1/8
     # Methods continue in Part 2...
+# ═══════════════════════════════════════════════════════════════════════════
+# PART 2/8: INSTALLATION & SETUP METHODS
+# APPEND THIS CODE TO PART 1 (after the log method)
+# ═══════════════════════════════════════════════════════════════════════════
+
+    def check_system_requirements(self):
+        """Check system requirements with detailed output"""
+        self.log("Checking system requirements...", 'working')
+        print()
+        
+        # Python version
+        if self.python_version < (3, 8):
+            self.log(f"Python {self.python_version.major}.{self.python_version.minor} is too old!", 'error')
+            self.log("Python 3.8+ required", 'error')
+            self.errors.append("Python version too old")
+        else:
+            self.log(f"Python {self.python_version.major}.{self.python_version.minor}.{self.python_version.micro} ✓", 'success')
+        
+        # RAM check
+        if self.ram_gb < 2:
+            self.log(f"RAM: {self.ram_gb:.2f} GB (Very Low - may be slow)", 'warn')
+            self.warnings.append("Low RAM detected")
+        else:
+            self.log(f"RAM: {self.ram_gb:.2f} GB ✓", 'success')
+        
+        # Disk space check
+        free_gb = self.disk.free / (1024**3)
+        if free_gb < 5:
+            self.log(f"Disk: {free_gb:.2f} GB free (Low space!)", 'warn')
+            self.warnings.append("Low disk space")
+        else:
+            self.log(f"Disk: {free_gb:.2f} GB free ✓", 'success')
+        
+        # CPU cores
+        self.log(f"CPU: {self.cpu_cores} cores ✓", 'success')
+        
+        # GUI check
+        if self.has_gui:
+            self.log("GUI: Available ✓", 'success')
+        else:
+            self.log("GUI: Not available (CLI mode only)", 'info')
+        
+        print()
+        return len(self.errors) == 0
+    
+    def create_all_directories(self):
+        """Create ALL directories with detailed progress"""
+        self.log(f"Creating {len(self.directories)} directories...", 'create')
+        
+        progress = ProgressBar(len(self.directories), "Creating directories")
+        
+        for name, path in self.directories.items():
+            full_path = self.root / path
+            full_path.mkdir(parents=True, exist_ok=True)
+            
+            # Create __init__.py for Python packages
+            (full_path / '__init__.py').touch()
+            
+            progress.update()
+        
+        progress.complete("All directories created!")
+    
+    def install_all_packages(self):
+        """Install ALL packages with detailed progress and ETA"""
+        total_packages = len(self.python_packages)
+        self.log(f"Installing {total_packages} Python packages...", 'install')
+        self.log("This may take 10-15 minutes...", 'warn')
+        print()
+        
+        progress = ProgressBar(total_packages, "Installing packages")
+        failed = []
+        
+        for i, package in enumerate(self.python_packages, 1):
+            try:
+                # Show which package we're installing
+                print(f"{Colors.ELECTRIC_BLUE}Installing:{Colors.END} {Colors.GOLD}{package}{Colors.END}  ", end='', flush=True)
+                
+                # Install package
+                result = subprocess.run(
+                    [sys.executable, '-m', 'pip', 'install', '-q', package],
+                    capture_output=True,
+                    timeout=300
+                )
+                
+                if result.returncode == 0:
+                    print(f"{Colors.BRIGHT_GREEN}✓{Colors.END}")
+                else:
+                    print(f"{Colors.BRIGHT_YELLOW}⚠{Colors.END}")
+                    failed.append(package)
+                
+                progress.update()
+            
+            except subprocess.TimeoutExpired:
+                print(f"{Colors.BRIGHT_RED}✗ (timeout){Colors.END}")
+                failed.append(package)
+                progress.update()
+            
+            except Exception as e:
+                print(f"{Colors.BRIGHT_RED}✗ (error){Colors.END}")
+                failed.append(package)
+                progress.update()
+        
+        print()
+        
+        if failed:
+            self.log(f"{len(failed)} packages failed (may not be critical)", 'warn')
+            for pkg in failed:
+                print(f"  {Colors.DIM}- {pkg}{Colors.END}")
+        else:
+            self.log("All packages installed successfully!", 'success')
+    
+    def create_complete_config(self):
+        """Create complete configuration file"""
+        self.log("Creating config.yaml...", 'create')
+        
+        config_content = f"""# MDH_Sacred_Gear MEGA ULTIMATE Configuration v2.0
+# Generated automatically by bootstrap
+
+general:
+  project_name: "MDH_Sacred_Gear"
+  version: "MEGA-ULTIMATE-v2.0"
+  debug_mode: false
+  log_level: "INFO"
+  gui_mode: {self.has_gui}
+  conversational_mode: true  # NEW: Natural conversation
+
+# AI Configuration - Multi-Provider with Fallback
+ai:
+  primary_model: "gemini-2.0-flash-exp"
+  conversation_mode: true  # NEW: Chat like a friend
+  
+  providers:
+    gemini_flash:
+      enabled: true
+      api_key: ""  # Get free: https://makersuite.google.com/app/apikey
+      model: "gemini-2.0-flash-exp"
+      free: true
+      unlimited: true
+      
+    deepseek:
+      enabled: true
+      api_key: ""  # Optional
+      model: "deepseek-reasoner"
+      base_url: "https://api.deepseek.com/v1"
+      free: true
+      unlimited: true
+      
+    gemini_pro:
+      enabled: false
+      api_key: ""
+      model: "gemini-2.0-pro-exp"
+      free: true
+      rate_limit: "5_per_minute"
+  
+  fallback_chain:
+    - "gemini_flash"
+    - "deepseek"
+    - "gemini_pro"
+  
+  temperature: 0.7
+  max_tokens: 8000
+
+# URL Parser - Intelligent URL understanding
+url_parser:
+  auto_detect_platform: true  # Auto-detect HackerOne, Bugcrowd, etc.
+  platforms:
+    - "hackerone.com"
+    - "bugcrowd.com"
+    - "intigriti.com"
+    - "yeswehack.com"
+
+# Auto-Learning System
+learning:
+  enabled: true
+  auto_update: true
+  max_update_time: 7200  # 2 hours
+  sources:
+    - "hackerone_disclosed"
+    - "bugcrowd_public"
+    - "github_advisories"
+    - "cve_database"
+    - "exploit_db"
+  update_on_startup: true
+
+# Anonymity
+anonymity:
+  default_mode: "direct"
+  tor:
+    enabled: false
+    socks_port: 9050
+    control_port: 9051
+  proxies:
+    enabled: false
+    rotate: true
+  fingerprint_spoofing:
+    user_agent: true
+    header_randomization: true
+
+# Resource Optimization
+resources:
+  auto_detect: true
+  profiles:
+    ultra_low:
+      workers: 2
+      batch_size: 10
+    low:
+      workers: 4
+      batch_size: 50
+    medium:
+      workers: 8
+      batch_size: 100
+    high:
+      workers: 16
+      batch_size: 200
+    ultra:
+      workers: 32
+      batch_size: 500
+
+# Scanners
+scanners:
+  xss:
+    enabled: true
+  sqli:
+    enabled: true
+  ssrf:
+    enabled: true
+  idor:
+    enabled: true
+  rce:
+    enabled: true
+  auth_bypass:
+    enabled: true
+
+# OSINT
+osint:
+  email_search: true
+  breach_check: true
+  admin_finder: true
+
+# Reporting
+reporting:
+  auto_generate: true
+  format: "txt"
+  include_screenshots: true
+  include_poc: true
+
+# GUI Configuration
+gui:
+  enabled: {self.has_gui}
+  theme: "hacker"  # hacker, cyberpunk, matrix
+  animations: true
+  glitch_effects: true
+  show_clock: true
+  auto_download_images: true
+  image_fallback: true
+
+# Legal
+legal:
+  disclaimer_accepted: false
+"""
+        
+        config_path = self.root / 'config' / 'config.yaml'
+        config_path.write_text(config_content)
+        
+        self.log(f"Config saved: {config_path}", 'success')
+    
+    def download_gui_assets(self):
+        """Download GUI assets (images, fonts) with fallbacks"""
+        if not self.has_gui:
+            self.log("Skipping GUI assets (CLI mode)", 'info')
+            return
+        
+        self.log("Downloading GUI assets...", 'download')
+        
+        # Asset URLs with fallbacks
+        assets = {
+            'logo': {
+                'urls': [
+                    'https://via.placeholder.com/200x200/000000/00FF00?text=MDH',  # Placeholder
+                    'https://dummyimage.com/200x200/000/0f0&text=Sacred+Gear',  # Fallback 1
+                ],
+                'path': 'ui/assets/images/logo.png'
+            },
+            'background': {
+                'urls': [
+                    'https://via.placeholder.com/1920x1080/000000/00FF00?text=HACKER+BG',
+                    'https://dummyimage.com/1920x1080/000/0f0&text=Background',
+                ],
+                'path': 'ui/assets/images/background.png'
+            },
+            'icon': {
+                'urls': [
+                    'https://via.placeholder.com/64x64/000000/00FF00?text=MDH',
+                    'https://dummyimage.com/64x64/000/0f0&text=Icon',
+                ],
+                'path': 'ui/assets/icons/app_icon.png'
+            }
+        }
+        
+        for asset_name, asset_data in assets.items():
+            saved = False
+            asset_path = self.root / asset_data['path']
+            asset_path.parent.mkdir(parents=True, exist_ok=True)
+            
+            for i, url in enumerate(asset_data['urls'], 1):
+                try:
+                    self.log(f"Downloading {asset_name} (attempt {i})...", 'download')
+                    urllib.request.urlretrieve(url, asset_path)
+                    self.log(f"{asset_name} downloaded ✓", 'success')
+                    saved = True
+                    break
+                except Exception as e:
+                    if i < len(asset_data['urls']):
+                        self.log(f"Failed, trying fallback {i}...", 'warn')
+                    else:
+                        self.log(f"{asset_name} download failed (will use default)", 'warn')
+            
+            # Create placeholder if all downloads failed
+            if not saved:
+                try:
+                    from PIL import Image, ImageDraw, ImageFont
+                    # Create simple placeholder
+                    img = Image.new('RGB', (200, 200), color='black')
+                    draw = ImageDraw.Draw(img)
+                    draw.text((50, 90), "MDH", fill='green')
+                    img.save(asset_path)
+                    self.log(f"Created placeholder for {asset_name}", 'info')
+                except:
+                    pass
+        
+        self.log("GUI assets setup complete", 'success')
+
+# END OF PART 2/8
+# TYPE "next" FOR PART 3/8
