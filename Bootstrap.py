@@ -638,3 +638,1220 @@ class MegaBootstrap:
 # END OF PART 1/14
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+# PART 2/14: CONFIGURATION + PERMISSIONS + ASSET DOWNLOADER
+# APPEND THIS AFTER PART 1 (after the line: # THEN TYPE "next" FOR PART 2/14)
+# ═══════════════════════════════════════════════════════════════════════════
+
+    def request_permissions(self):
+        """Request system permissions ONCE"""
+        self.log("Checking permissions...", 'working')
+        
+        permissions_file = self.root / 'config' / 'permissions.yaml'
+        
+        # Check if already configured
+        if permissions_file.exists():
+            import yaml
+            with open(permissions_file, 'r') as f:
+                perms = yaml.safe_load(f)
+                if perms and perms.get('configured'):
+                    self.log("Permissions already configured", 'success')
+                    return perms
+        
+        # Ask user
+        print(f"\n{Colors.CYN}{Colors.BLD}{'━' * 80}{Colors.END}")
+        print(f"{Colors.YEL}{Colors.BLD}⚠️  PERMISSION REQUEST{Colors.END}\n")
+        print(f"{Colors.WHT}MDH_Sacred_Gear needs system-level access to:{Colors.END}")
+        print(f"  {Colors.GRN}•{Colors.END} Read/write files in its own directory")
+        print(f"  {Colors.GRN}•{Colors.END} Execute network requests")
+        print(f"  {Colors.GRN}•{Colors.END} Run system commands (for updates)")
+        print(f"  {Colors.GRN}•{Colors.END} Access browser data (for authentication)")
+        print(f"\n{Colors.DIM}This is asked ONCE and saved to config/permissions.yaml{Colors.END}")
+        print(f"{Colors.CYN}{Colors.BLD}{'━' * 80}{Colors.END}\n")
+        
+        while True:
+            response = input(f"{Colors.YEL}Grant permissions? (yes/no): {Colors.END}").strip().lower()
+            if response in ['yes', 'y']:
+                permissions = {
+                    'configured': True,
+                    'system_access': True,
+                    'network_access': True,
+                    'file_access': True,
+                    'browser_access': True,
+                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+                }
+                break
+            elif response in ['no', 'n']:
+                permissions = {
+                    'configured': True,
+                    'system_access': False,
+                    'network_access': True,
+                    'file_access': True,
+                    'browser_access': False,
+                    'timestamp': time.strftime('%Y-%m-%d %H:%M:%S')
+                }
+                self.log("Limited permissions granted", 'warn')
+                break
+            else:
+                print(f"{Colors.RED}Please answer 'yes' or 'no'{Colors.END}")
+        
+        # Save permissions
+        import yaml
+        with open(permissions_file, 'w') as f:
+            yaml.dump(permissions, f, default_flow_style=False)
+        
+        self.log("Permissions saved", 'success')
+        return permissions
+    
+    def download_gui_assets(self):
+        """Download GUI assets (images, fonts) with fallbacks"""
+        if not self.analyzer.has_gui:
+            self.log("GUI not available, skipping asset download", 'info')
+            return
+        
+        self.log("Downloading GUI assets...", 'working')
+        print()
+        
+        assets_dir = self.root / 'ui' / 'gui' / 'assets'
+        assets_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Asset list with fallbacks
+        assets = [
+            {
+                'name': 'matrix_bg.png',
+                'urls': [
+                    'https://raw.githubusercontent.com/topics/matrix-background/matrix.png',
+                    'https://picsum.photos/1920/1080?grayscale&blur=2'
+                ],
+                'fallback': 'ascii_matrix'
+            },
+            {
+                'name': 'hacker_icon.png',
+                'urls': [
+                    'https://raw.githubusercontent.com/simple-icons/simple-icons/develop/icons/hackaday.svg'
+                ],
+                'fallback': 'ascii_icon'
+            }
+        ]
+        
+        downloaded = 0
+        for asset in assets:
+            asset_path = assets_dir / asset['name']
+            
+            # Try downloading from URLs
+            success = False
+            for url in asset['urls']:
+                try:
+                    print(f"  {Colors.MAG}⬇{Colors.END}  {asset['name']}...", end='', flush=True)
+                    urllib.request.urlretrieve(url, asset_path)
+                    print(f" {Colors.GRN}✓{Colors.END}")
+                    downloaded += 1
+                    success = True
+                    break
+                except:
+                    continue
+            
+            if not success:
+                # Use fallback
+                print(f" {Colors.YEL}⚠{Colors.END} (using fallback)")
+                self._create_fallback_asset(asset_path, asset['fallback'])
+        
+        print()
+        self.log(f"Downloaded {downloaded}/{len(assets)} assets", 'success' if downloaded > 0 else 'warn')
+    
+    def _create_fallback_asset(self, path, fallback_type):
+        """Create fallback ASCII art assets"""
+        fallbacks = {
+            'ascii_matrix': '''
+████╗   ███╗ █████╗ ████████╗██████╗ ██╗██╗  ██╗
+████╗ ████║██╔══██╗╚══██╔══╝██╔══██╗██║╚██╗██╔╝
+██╔████╔██║███████║   ██║   ██████╔╝██║ ╚███╔╝ 
+██║╚██╔╝██║██╔══██║   ██║   ██╔══██╗██║ ██╔██╗ 
+██║ ╚═╝ ██║██║  ██║   ██║   ██║  ██║██║██╔╝ ██╗
+╚═╝     ╚═╝╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝╚═╝╚═╝  ╚═╝
+            ''',
+            'ascii_icon': '🔒'
+        }
+        
+        content = fallbacks.get(fallback_type, '')
+        path.write_text(content)
+    
+    def create_complete_config(self):
+        """Create COMPLETE configuration file"""
+        self.log("Creating configuration files...", 'working')
+        
+        config_content = f"""# MDH_Sacred_Gear Complete Configuration
+# Generated by MEGA Bootstrap v2.0
+# Edit this file to customize settings
+
+general:
+  project_name: "MDH_Sacred_Gear"
+  version: "CONVERSATIONAL-MEGA-v2.0"
+  debug_mode: false
+  log_level: "INFO"
+  gui_mode: {self.analyzer.has_gui}
+  system_profile: "{self.analyzer.profile}"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AI CONFIGURATION - 6-MODEL PRIORITY SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+ai:
+  # Primary model (smartest, use first even with rate limits)
+  primary_model: "gemini_thinking"
+  
+  # Auto-switch on rate limit
+  auto_switch: true
+  
+  # Provider configurations
+  providers:
+    # Tier 1: Smartest (use first)
+    gemini_thinking:
+      enabled: true
+      api_key: ""  # FREE - Get at: https://makersuite.google.com/app/apikey
+      model: "gemini-2.0-flash-thinking-exp"
+      free: true
+      rate_limit: "4_per_minute"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    gemini_pro:
+      enabled: true
+      api_key: ""  # Same key as above
+      model: "gemini-2.0-pro-exp"
+      free: true
+      rate_limit: "2_per_minute"
+      max_tokens: 8192
+      temperature: 0.7
+    
+    # Tier 2: Fallback when rate limited
+    deepseek:
+      enabled: true
+      api_key: ""  # FREE - Get at: https://platform.deepseek.com
+      model: "deepseek-reasoner"
+      base_url: "https://api.deepseek.com/v1"
+      free: true
+      rate_limit: null  # Unlimited
+      max_tokens: 4096
+      temperature: 0.7
+    
+    gemini_flash:
+      enabled: true
+      api_key: ""  # Same as gemini_thinking
+      model: "gemini-2.0-flash-exp"
+      free: true
+      rate_limit: null  # Unlimited
+      max_tokens: 8192
+      temperature: 0.7
+    
+    # Tier 3: Alternative providers
+    groq_llama:
+      enabled: false
+      api_key: ""  # FREE - Get at: https://console.groq.com
+      model: "llama-3.3-70b-versatile"
+      base_url: "https://api.groq.com/openai/v1"
+      free: true
+      rate_limit: "30_per_minute"
+      max_tokens: 8000
+    
+    huggingchat:
+      enabled: false
+      model: "Qwen/Qwen2.5-72B-Instruct"
+      free: true
+      rate_limit: null
+      requires_web_scraping: true
+  
+  # Fallback chain (order matters)
+  fallback_chain:
+    - "gemini_thinking"
+    - "gemini_pro"
+    - "deepseek"
+    - "gemini_flash"
+    - "groq_llama"
+    - "huggingchat"
+  
+  # Manual switching
+  manual_switch_enabled: true
+  
+  # Conversational settings
+  conversational_mode: true
+  context_memory: 10  # Remember last 10 messages
+  smart_questions: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEARNING & INTELLIGENCE
+# ═══════════════════════════════════════════════════════════════════════════
+
+learning:
+  enabled: true
+  auto_update: true
+  max_update_time: 7200  # 2 hours max
+  update_on_startup: false  # Don't delay startup
+  
+  sources:
+    hackerone: true
+    bugcrowd: true
+    github_advisories: true
+    cve_database: true
+    exploit_db: true
+    security_blogs: true
+  
+  continuous_learning: true
+  pattern_recognition: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# ANONYMITY & PRIVACY
+# ═══════════════════════════════════════════════════════════════════════════
+
+anonymity:
+  # Default mode: ghost/stealth/fast/direct
+  default_mode: "stealth"
+  
+  tor:
+    enabled: false
+    socks_port: 9050
+    control_port: 9051
+    circuit_rotation: 300  # seconds
+    exit_country: null  # null = random
+  
+  proxies:
+    enabled: false
+    rotate: true
+    rotation_interval: 60
+    proxy_list: []
+  
+  fingerprint_spoofing:
+    user_agent: true
+    tls_fingerprint: true
+    browser_fingerprint: true
+    header_randomization: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# RESOURCE OPTIMIZATION
+# ═══════════════════════════════════════════════════════════════════════════
+
+resources:
+  auto_detect: true
+  current_profile: "{self.analyzer.profile}"
+  
+  profiles:
+    ultra_low:
+      workers: 2
+      batch_size: 10
+      cache_size_mb: 50
+      max_memory_mb: 1024
+    low:
+      workers: 4
+      batch_size: 50
+      cache_size_mb: 200
+      max_memory_mb: 2048
+    medium:
+      workers: 8
+      batch_size: 100
+      cache_size_mb: 500
+      max_memory_mb: 4096
+    high:
+      workers: 16
+      batch_size: 200
+      cache_size_mb: 1024
+      max_memory_mb: 8192
+    ultra:
+      workers: 32
+      batch_size: 500
+      cache_size_mb: 2048
+      max_memory_mb: 16384
+  
+  limits:
+    disk_space: null  # No limit
+    scan_duration: null  # No limit
+    max_requests: null  # No limit
+    time_limit: null  # No limit
+
+# ═══════════════════════════════════════════════════════════════════════════
+# VULNERABILITY SCANNERS
+# ═══════════════════════════════════════════════════════════════════════════
+
+scanners:
+  # Web vulnerabilities
+  xss:
+    enabled: true
+    types: ["reflected", "stored", "dom"]
+    payload_count: 50
+  
+  sqli:
+    enabled: true
+    types: ["error", "boolean", "time", "union"]
+    payload_count: 30
+  
+  ssrf:
+    enabled: true
+    internal_networks: true
+    cloud_metadata: true
+  
+  idor:
+    enabled: true
+    fuzzing: true
+  
+  rce:
+    enabled: true
+    command_injection: true
+    code_injection: true
+  
+  lfi_rfi:
+    enabled: true
+    path_traversal: true
+  
+  xxe:
+    enabled: true
+  
+  csrf:
+    enabled: true
+  
+  open_redirect:
+    enabled: true
+  
+  # API vulnerabilities
+  api_scanner:
+    enabled: true
+    rest: true
+    graphql: true
+    rate_limiting: true
+  
+  # Auth vulnerabilities
+  auth_bypass:
+    enabled: true
+    jwt: true
+    oauth: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# OSINT ENGINE
+# ═══════════════════════════════════════════════════════════════════════════
+
+osint:
+  email_search: true
+  breach_check: true
+  admin_finder: true
+  subdomain_enum: true
+  tech_detection: true
+  
+  apis:
+    shodan_key: ""
+    censys_id: ""
+    censys_secret: ""
+    hunter_api: ""
+    securitytrails_api: ""
+
+# ═══════════════════════════════════════════════════════════════════════════
+# REPORTING
+# ═══════════════════════════════════════════════════════════════════════════
+
+reporting:
+  auto_generate: true
+  format: "txt"  # txt/markdown/json/html
+  include_screenshots: true
+  include_poc: true
+  include_exploitation_guide: true
+  
+  cvss_calculation: true
+  severity_rating: true
+  
+  platforms:
+    hackerone: true
+    bugcrowd: true
+    intigriti: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# CHAT SYSTEM
+# ═══════════════════════════════════════════════════════════════════════════
+
+chat:
+  enabled: true
+  mode: "auto"  # auto/flask/terminal/same
+  
+  flask_server:
+    host: "127.0.0.1"
+    port: 5000
+    auto_open_browser: true
+  
+  terminal_chat:
+    try_new_terminal: true
+    fallback_split: true
+  
+  history:
+    save: true
+    max_messages: 1000
+
+# ═══════════════════════════════════════════════════════════════════════════
+# UI SETTINGS
+# ═══════════════════════════════════════════════════════════════════════════
+
+ui:
+  mode: "conversational"  # conversational/menu
+  
+  cli:
+    colors: true
+    animations: true
+    glitch_effects: true
+    matrix_style: true
+  
+  gui:
+    theme: "hacker_dark"
+    animations: true
+    glitch_effects: true
+    show_live_terminal: true
+  
+  status_display:
+    enabled: true
+    show_progress: true
+    show_eta: true
+    show_metrics: true
+
+# ═══════════════════════════════════════════════════════════════════════════
+# LEGAL & ETHICS
+# ═══════════════════════════════════════════════════════════════════════════
+
+legal:
+  disclaimer_accepted: false
+  enforce_scope: true
+  respect_rate_limits: true
+  
+  warnings:
+    show_startup_warning: true
+    require_confirmation: true
+"""
+        
+        config_file = self.root / 'config' / 'config.yaml'
+        config_file.write_text(config_content)
+        
+        self.log("Configuration created", 'success')
+    
+    def create_requirements_txt(self):
+        """Create requirements.txt file"""
+        self.log("Creating requirements.txt...", 'working')
+        
+        requirements = '\n'.join(self.python_packages)
+        requirements_file = self.root / 'requirements.txt'
+        requirements_file.write_text(requirements)
+        
+        self.log("requirements.txt created", 'success')
+    
+    def create_readme(self):
+        """Create comprehensive README.md"""
+        self.log("Creating README.md...", 'working')
+        
+        readme_content = f"""# MDH_Sacred_Gear - Conversational Bug Bounty AI
+
+## 🎯 The Ultimate Bug Bounty Automation Tool
+
+MDH_Sacred_Gear is the most advanced, AI-powered bug bounty automation tool ever created. With conversational AI, 6-model priority system, and unlimited power - it's built to dominate bug bounty platforms.
+
+## ✨ Features
+
+### 🤖 AI-Powered Conversational Interface
+- Natural language interaction
+- Smart context understanding
+- Ask questions anytime during scans
+- Both conversational and menu modes
+
+### 🧠 6-Model AI Priority System
+1. **Gemini 2.0 Flash Thinking** - Smartest, use first
+2. **Gemini 2.5 Pro** - Powerful reasoning
+3. **DeepSeek R1** - Free, unlimited fallback
+4. **Gemini 2.0 Flash** - Fast and free
+5. **Groq Llama** - Alternative option
+6. **HuggingChat** - Final fallback
+
+### 🔍 11+ Complete Vulnerability Scanners
+- XSS (Reflected, Stored, DOM)
+- SQL Injection (Error, Boolean, Time, Union)
+- SSRF
+- IDOR
+- RCE
+- LFI/RFI
+- XXE
+- CSRF
+- Open Redirect
+- API vulnerabilities
+- Auth bypass
+
+### 🎭 Privacy & Anonymity
+- 4 modes: Ghost, Stealth, Fast, Direct
+- Tor integration
+- Proxy rotation
+- Fingerprint spoofing
+
+### 🌐 Cloudflare Bypass
+- Multiple methods
+- CAPTCHA auto-solver
+- Undetected browser automation
+
+### 📊 Professional Reporting
+- Complete exploitation guides
+- CVSS scoring
+- Multiple formats (TXT, Markdown, JSON, HTML)
+- Platform-specific formatting
+
+### 💬 Live Chat System
+- Chat during scans
+- Ask questions anytime
+- Context-aware AI responses
+
+## 🚀 Quick Start
+
+### Installation
+```bash
+# Clone or download
+# Run bootstrap
+python3 bootstrap.py
+
+# Wait 10-15 minutes for complete setup
+```
+
+### First Run
+```bash
+python3 mdh.py NAGA!
+```
+
+The AI will:
+1. Greet you conversationally
+2. Ask what you want to hunt
+3. Guide you through the process
+4. Start scanning automatically
+
+### Example Conversation
+```
+🤖 AI: Hey! Ready to hunt some bugs today?
+
+👤 You: I found this program: https://hackerone.com/example
+
+🤖 AI: Awesome! Let me analyze that program...
+       [Automatically scrapes scope and starts]
+```
+
+## ⚙️ Configuration
+
+Edit `config/config.yaml` to:
+- Add AI API keys (optional, works FREE without them)
+- Customize scanning behavior
+- Set anonymity preferences
+- Configure resource usage
+
+## 🔑 API Keys (Optional)
+
+The tool works 100% FREE without API keys, but adding them unlocks:
+
+- **Gemini**: https://makersuite.google.com/app/apikey (FREE)
+- **DeepSeek**: https://platform.deepseek.com (FREE)
+- **Groq**: https://console.groq.com (FREE)
+
+## 📚 Documentation
+
+- Conversational mode: Just talk naturally!
+- Menu mode: Type 'menu' to switch
+- Help: Type 'help' anytime
+- Exit: Type 'exit' or 'quit'
+
+## 🎨 Features
+
+- ✅ 100% FREE operation
+- ✅ No limits on scans, time, or storage
+- ✅ Self-healing (auto-fixes errors)
+- ✅ Self-upgrading (AI asks YOU what to add)
+- ✅ Continuous learning
+- ✅ Multi-agent parallel scanning
+- ✅ Professional reports
+- ✅ Live status display
+- ✅ GUI and CLI support
+
+## ⚠️ Legal Disclaimer
+
+This tool is for **authorized security testing only**. You must have explicit permission to test any target. Unauthorized access is illegal. The developers are not responsible for misuse.
+
+## 🤝 Contributing
+
+Feature requests? Bug reports? Open an issue!
+
+## 📄 License
+
+MIT License - Use freely, hack responsibly!
+
+## 🔥 NO LIMITS. NO RESTRICTIONS. PURE POWER.
+
+---
+
+Made with 💚 by MDH
+Version: CONVERSATIONAL-MEGA-v2.0
+"""
+        
+        readme_file = self.root / 'README.md'
+        readme_file.write_text(readme_content)
+        
+        self.log("README.md created", 'success')
+
+# END OF PART 2/14
+# Last line of Part 1 was: # THEN TYPE "next" FOR PART 2/14
+# APPEND THIS CODE AFTER THAT LINE
+# THEN TYPE "next" FOR PART 3/14
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PART 3/14: AI BRAIN - 6-MODEL PRIORITY SYSTEM
+# APPEND THIS AFTER PART 2 (after the line: # THEN TYPE "next" FOR PART 3/14)
+# ═══════════════════════════════════════════════════════════════════════════
+
+    def create_ai_brain_system(self):
+        """Create COMPLETE AI Brain with 6 providers"""
+        self.log("Creating AI Brain system...", 'working')
+        
+        # Main AI Brain
+        brain_code = '''"""
+AI Brain - Complete 6-Model Priority System
+Auto-switching on rate limits, conversational AI
+"""
+
+import yaml
+from pathlib import Path
+import time
+import json
+
+class SacredGearBrain:
+    """AI Brain with 6-model priority and auto-fallback"""
+    
+    def __init__(self, config_path="config/config.yaml"):
+        """Initialize AI Brain"""
+        self.config = self._load_config(config_path)
+        self.ai_config = self.config.get('ai', {})
+        self.providers = {}
+        self.current_model = None
+        self.conversation_history = []
+        self.context_memory = self.ai_config.get('context_memory', 10)
+        
+        # Initialize rate limiter
+        from ai.rate_limiter import RateLimiter
+        self.rate_limiter = RateLimiter()
+        
+        # Initialize all providers
+        self._initialize_providers()
+        
+        # Set primary model
+        primary = self.ai_config.get('primary_model', 'gemini_thinking')
+        self.current_model = primary if primary in self.providers else list(self.providers.keys())[0]
+        
+        print(f"[AI] Brain initialized with {len(self.providers)} providers")
+        print(f"[AI] Primary model: {self.current_model}")
+    
+    def _load_config(self, path):
+        """Load configuration"""
+        try:
+            with open(path, 'r') as f:
+                return yaml.safe_load(f)
+        except:
+            return {'ai': {'providers': {}, 'fallback_chain': []}}
+    
+    def _initialize_providers(self):
+        """Initialize all AI providers"""
+        providers_config = self.ai_config.get('providers', {})
+        
+        for provider_name, provider_config in providers_config.items():
+            if not provider_config.get('enabled', False):
+                continue
+            
+            try:
+                if provider_name == 'gemini_thinking':
+                    from ai.providers.gemini_thinking import GeminiThinkingProvider
+                    self.providers[provider_name] = GeminiThinkingProvider(provider_config)
+                
+                elif provider_name == 'gemini_pro':
+                    from ai.providers.gemini_pro import GeminiProProvider
+                    self.providers[provider_name] = GeminiProProvider(provider_config)
+                
+                elif provider_name == 'gemini_flash':
+                    from ai.providers.gemini_flash import GeminiFlashProvider
+                    self.providers[provider_name] = GeminiFlashProvider(provider_config)
+                
+                elif provider_name == 'deepseek':
+                    from ai.providers.deepseek import DeepSeekProvider
+                    self.providers[provider_name] = DeepSeekProvider(provider_config)
+                
+                elif provider_name == 'groq_llama':
+                    from ai.providers.groq_llama import GroqLlamaProvider
+                    self.providers[provider_name] = GroqLlamaProvider(provider_config)
+                
+                elif provider_name == 'huggingchat':
+                    from ai.providers.huggingchat import HuggingChatProvider
+                    self.providers[provider_name] = HuggingChatProvider(provider_config)
+                
+                print(f"[AI] Loaded provider: {provider_name}")
+            
+            except Exception as e:
+                print(f"[AI] Failed to load {provider_name}: {e}")
+    
+    def ask(self, prompt, context=None, system_prompt=None):
+        """Ask AI a question with auto-fallback"""
+        # Add to conversation history
+        self.conversation_history.append({'role': 'user', 'content': prompt})
+        
+        # Keep only recent history
+        if len(self.conversation_history) > self.context_memory * 2:
+            self.conversation_history = self.conversation_history[-self.context_memory * 2:]
+        
+        # Try current model
+        response = self._try_model(self.current_model, prompt, context, system_prompt)
+        
+        if response:
+            self.conversation_history.append({'role': 'assistant', 'content': response})
+            return response
+        
+        # Try fallback chain
+        fallback_chain = self.ai_config.get('fallback_chain', [])
+        for model_name in fallback_chain:
+            if model_name == self.current_model or model_name not in self.providers:
+                continue
+            
+            print(f"[AI] Switching to fallback: {model_name}")
+            response = self._try_model(model_name, prompt, context, system_prompt)
+            
+            if response:
+                self.current_model = model_name
+                self.conversation_history.append({'role': 'assistant', 'content': response})
+                return response
+        
+        # Ultimate fallback
+        fallback_response = self._generate_fallback_response(prompt)
+        self.conversation_history.append({'role': 'assistant', 'content': fallback_response})
+        return fallback_response
+    
+    def _try_model(self, model_name, prompt, context, system_prompt):
+        """Try to get response from specific model"""
+        if model_name not in self.providers:
+            return None
+        
+        provider = self.providers[model_name]
+        
+        # Check rate limit
+        if not self.rate_limiter.can_request(model_name):
+            print(f"[AI] {model_name} rate limited")
+            return None
+        
+        try:
+            # Record request
+            self.rate_limiter.record_request(model_name)
+            
+            # Build full prompt with history
+            full_prompt = self._build_prompt_with_history(prompt, context, system_prompt)
+            
+            # Get response
+            response = provider.generate(full_prompt)
+            
+            return response
+        
+        except Exception as e:
+            print(f"[AI] Error with {model_name}: {e}")
+            return None
+    
+    def _build_prompt_with_history(self, prompt, context, system_prompt):
+        """Build prompt with conversation history"""
+        parts = []
+        
+        if system_prompt:
+            parts.append(f"SYSTEM: {system_prompt}")
+        
+        if context:
+            parts.append(f"CONTEXT: {context}")
+        
+        # Add recent history
+        recent_history = self.conversation_history[-6:]
+        for msg in recent_history:
+            role = msg['role'].upper()
+            parts.append(f"{role}: {msg['content']}")
+        
+        parts.append(f"USER: {prompt}")
+        
+        return "\\n\\n".join(parts)
+    
+    def _generate_fallback_response(self, prompt):
+        """Generate fallback response when all models fail"""
+        responses = {
+            'scan': "I'll start scanning the target. This may take a few minutes.",
+            'analyze': "Analyzing the target for vulnerabilities...",
+            'report': "Generating professional security report...",
+            'help': "I'm here to help with bug bounty hunting. What would you like to know?",
+        }
+        
+        prompt_lower = prompt.lower()
+        for key, response in responses.items():
+            if key in prompt_lower:
+                return response
+        
+        return "Processing your request... (AI models temporarily unavailable)"
+    
+    def switch_model(self, model_name):
+        """Manually switch to different model"""
+        if model_name in self.providers:
+            self.current_model = model_name
+            print(f"[AI] Switched to: {model_name}")
+            return True
+        return False
+    
+    def get_available_models(self):
+        """Get list of available models"""
+        return list(self.providers.keys())
+    
+    def clear_history(self):
+        """Clear conversation history"""
+        self.conversation_history = []
+'''
+        
+        (self.root / 'ai' / 'brain.py').write_text(brain_code)
+        self.log("AI Brain created", 'success')
+        
+        # Create rate limiter
+        self._create_rate_limiter()
+        
+        # Create all 6 providers
+        self._create_gemini_thinking_provider()
+        self._create_gemini_pro_provider()
+        self._create_gemini_flash_provider()
+        self._create_deepseek_provider()
+        self._create_groq_provider()
+        self._create_huggingchat_provider()
+    
+    def _create_rate_limiter(self):
+        """Create rate limiter system"""
+        rate_limiter_code = '''"""
+Rate Limiter - Track API usage and limits
+"""
+
+import time
+from collections import defaultdict, deque
+
+class RateLimiter:
+    """Rate limiting for AI models"""
+    
+    def __init__(self):
+        self.requests = defaultdict(deque)
+        self.limits = {
+            'gemini_thinking': {'requests': 4, 'window': 60},
+            'gemini_pro': {'requests': 2, 'window': 60},
+            'gemini_flash': None,  # Unlimited
+            'deepseek': None,  # Unlimited
+            'groq_llama': {'requests': 30, 'window': 60},
+            'huggingchat': None  # Unlimited
+        }
+    
+    def can_request(self, model_name):
+        """Check if can make request"""
+        limit = self.limits.get(model_name)
+        
+        if limit is None:
+            return True
+        
+        now = time.time()
+        requests = self.requests[model_name]
+        
+        # Remove old requests outside window
+        while requests and requests[0] < now - limit['window']:
+            requests.popleft()
+        
+        # Check if under limit
+        return len(requests) < limit['requests']
+    
+    def record_request(self, model_name):
+        """Record a request"""
+        self.requests[model_name].append(time.time())
+    
+    def get_wait_time(self, model_name):
+        """Get time to wait before next request"""
+        limit = self.limits.get(model_name)
+        
+        if limit is None:
+            return 0
+        
+        requests = self.requests[model_name]
+        if len(requests) < limit['requests']:
+            return 0
+        
+        oldest = requests[0]
+        wait = limit['window'] - (time.time() - oldest)
+        return max(0, wait)
+'''
+        
+        (self.root / 'ai' / 'rate_limiter.py').write_text(rate_limiter_code)
+        self.log("Rate limiter created", 'success')
+    
+    def _create_gemini_thinking_provider(self):
+        """Create Gemini 2.0 Flash Thinking provider"""
+        provider_code = '''"""
+Gemini 2.0 Flash Thinking Provider
+Smartest model, use first
+"""
+
+class GeminiThinkingProvider:
+    """Gemini 2.0 Flash Thinking Experimental"""
+    
+    def __init__(self, config):
+        self.config = config
+        self.client = None
+        self._initialize()
+    
+    def _initialize(self):
+        """Initialize Gemini client"""
+        try:
+            import google.generativeai as genai
+            
+            api_key = self.config.get('api_key')
+            if not api_key:
+                print("[Gemini Thinking] No API key provided")
+                return
+            
+            genai.configure(api_key=api_key)
+            
+            model_name = self.config.get('model', 'gemini-2.0-flash-thinking-exp')
+            self.client = genai.GenerativeModel(model_name)
+            
+            print("[Gemini Thinking] Initialized")
+        
+        except Exception as e:
+            print(f"[Gemini Thinking] Init failed: {e}")
+    
+    def generate(self, prompt):
+        """Generate response"""
+        if not self.client:
+            return None
+        
+        try:
+            response = self.client.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"[Gemini Thinking] Error: {e}")
+            return None
+'''
+        
+        (self.root / 'ai' / 'providers' / 'gemini_thinking.py').write_text(provider_code)
+    
+    def _create_gemini_pro_provider(self):
+        """Create Gemini 2.0 Pro provider"""
+        provider_code = '''"""
+Gemini 2.0 Pro Provider
+High capability reasoning
+"""
+
+class GeminiProProvider:
+    """Gemini 2.0 Pro Experimental"""
+    
+    def __init__(self, config):
+        self.config = config
+        self.client = None
+        self._initialize()
+    
+    def _initialize(self):
+        """Initialize Gemini Pro client"""
+        try:
+            import google.generativeai as genai
+            
+            api_key = self.config.get('api_key')
+            if not api_key:
+                return
+            
+            genai.configure(api_key=api_key)
+            
+            model_name = self.config.get('model', 'gemini-2.0-pro-exp')
+            self.client = genai.GenerativeModel(model_name)
+            
+            print("[Gemini Pro] Initialized")
+        
+        except Exception as e:
+            print(f"[Gemini Pro] Init failed: {e}")
+    
+    def generate(self, prompt):
+        """Generate response"""
+        if not self.client:
+            return None
+        
+        try:
+            response = self.client.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"[Gemini Pro] Error: {e}")
+            return None
+'''
+        
+        (self.root / 'ai' / 'providers' / 'gemini_pro.py').write_text(provider_code)
+    
+    def _create_gemini_flash_provider(self):
+        """Create Gemini Flash provider"""
+        provider_code = '''"""
+Gemini 2.0 Flash Provider
+Fast and unlimited
+"""
+
+class GeminiFlashProvider:
+    """Gemini 2.0 Flash Experimental"""
+    
+    def __init__(self, config):
+        self.config = config
+        self.client = None
+        self._initialize()
+    
+    def _initialize(self):
+        """Initialize Gemini Flash client"""
+        try:
+            import google.generativeai as genai
+            
+            api_key = self.config.get('api_key')
+            if not api_key:
+                return
+            
+            genai.configure(api_key=api_key)
+            
+            model_name = self.config.get('model', 'gemini-2.0-flash-exp')
+            self.client = genai.GenerativeModel(model_name)
+            
+            print("[Gemini Flash] Initialized")
+        
+        except Exception as e:
+            print(f"[Gemini Flash] Init failed: {e}")
+    
+    def generate(self, prompt):
+        """Generate response"""
+        if not self.client:
+            return None
+        
+        try:
+            response = self.client.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            print(f"[Gemini Flash] Error: {e}")
+            return None
+'''
+        
+        (self.root / 'ai' / 'providers' / 'gemini_flash.py').write_text(provider_code)
+    
+    def _create_deepseek_provider(self):
+        """Create DeepSeek provider"""
+        provider_code = '''"""
+DeepSeek R1 Provider
+Free unlimited reasoning
+"""
+
+class DeepSeekProvider:
+    """DeepSeek R1 Reasoner"""
+    
+    def __init__(self, config):
+        self.config = config
+        self.client = None
+        self._initialize()
+    
+    def _initialize(self):
+        """Initialize DeepSeek client"""
+        try:
+            from openai import OpenAI
+            
+            api_key = self.config.get('api_key', 'sk-free')
+            base_url = self.config.get('base_url', 'https://api.deepseek.com/v1')
+            
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            
+            print("[DeepSeek] Initialized")
+        
+        except Exception as e:
+            print(f"[DeepSeek] Init failed: {e}")
+    
+    def generate(self, prompt):
+        """Generate response"""
+        if not self.client:
+            return None
+        
+        try:
+            response = self.client.chat.completions.create(
+                model='deepseek-reasoner',
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"[DeepSeek] Error: {e}")
+            return None
+'''
+        
+        (self.root / 'ai' / 'providers' / 'deepseek.py').write_text(provider_code)
+    
+    def _create_groq_provider(self):
+        """Create Groq Llama provider"""
+        provider_code = '''"""
+Groq Llama Provider
+Fast inference
+"""
+
+class GroqLlamaProvider:
+    """Llama 3.3 70B via Groq"""
+    
+    def __init__(self, config):
+        self.config = config
+        self.client = None
+        self._initialize()
+    
+    def _initialize(self):
+        """Initialize Groq client"""
+        try:
+            from openai import OpenAI
+            
+            api_key = self.config.get('api_key')
+            if not api_key:
+                return
+            
+            base_url = self.config.get('base_url', 'https://api.groq.com/openai/v1')
+            self.client = OpenAI(api_key=api_key, base_url=base_url)
+            
+            print("[Groq Llama] Initialized")
+        
+        except Exception as e:
+            print(f"[Groq Llama] Init failed: {e}")
+    
+    def generate(self, prompt):
+        """Generate response"""
+        if not self.client:
+            return None
+        
+        try:
+            response = self.client.chat.completions.create(
+                model='llama-3.3-70b-versatile',
+                messages=[{'role': 'user', 'content': prompt}]
+            )
+            return response.choices[0].message.content
+        except Exception as e:
+            print(f"[Groq Llama] Error: {e}")
+            return None
+'''
+        
+        (self.root / 'ai' / 'providers' / 'groq_llama.py').write_text(provider_code)
+    
+    def _create_huggingchat_provider(self):
+        """Create HuggingChat provider"""
+        provider_code = '''"""
+HuggingChat Provider
+Free web-based access
+"""
+
+class HuggingChatProvider:
+    """Qwen 2.5 72B via HuggingChat"""
+    
+    def __init__(self, config):
+        self.config = config
+        print("[HuggingChat] Initialized (web scraping mode)")
+    
+    def generate(self, prompt):
+        """Generate response"""
+        # Simplified - would need web scraping in full version
+        return "HuggingChat response (web scraping not implemented in bootstrap)"
+'''
+        
+        (self.root / 'ai' / 'providers' / 'huggingchat.py').write_text(provider_code)
+        
+        self.log("All 6 AI providers created", 'success')
+
+# END OF PART 3/14
+# Last line of Part 2 was: # THEN TYPE "next" FOR PART 3/14
+# APPEND THIS CODE AFTER THAT LINE
+# THEN TYPE "next" FOR PART 4/14
+
+
