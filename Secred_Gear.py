@@ -601,8 +601,9 @@ class MegaBootstrap:
         # Final message
         print(f"\n{Colors.CYN}[SYSTEM] {Colors.matrix_rain('Welcome to the underground...')}{Colors.END}")
         print(f"{Colors.RED}[WARN] {Colors.glitch('This tool has NO LIMITS!')}{Colors.END}")
-        message = "But remember, use responsibly with Allah's guidance"
-print(f"{Colors.GRN}[OK] {Colors.islamic_style(message)}{Colors.END}\n")
+        # Fixed indentation using only spaces
+        msg = "But remember, use responsibly with Allah's guidance"
+        print("{}[OK] {}{}".format(Colors.GRN, Colors.islamic_style(msg), Colors.END + "\n"))
     
     def create_all_directories(self):
         """Create all directories with hacker style output"""
