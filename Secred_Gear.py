@@ -563,7 +563,7 @@ class MegaBootstrap:
                 print(f"{Colors.YEL}[!] The tool will wait for you InshaAllah...{Colors.END}")
                 print(f"{Colors.DIM}Press Enter after praying...{Colors.END}")
                 input()
-                print(f"{Colors.islamic_style('Alhamdulillah! Welcome back! Let\\'s continue...')}")
+                print(Colors.islamic_style("Alhamdulillah! Welcome back! Let's continue..."))
         else:
             print(f"{Colors.islamic_style('Remember to pray on time InshaAllah! 🕌')}")
         
@@ -601,7 +601,8 @@ class MegaBootstrap:
         # Final message
         print(f"\n{Colors.CYN}[SYSTEM] {Colors.matrix_rain('Welcome to the underground...')}{Colors.END}")
         print(f"{Colors.RED}[WARN] {Colors.glitch('This tool has NO LIMITS!')}{Colors.END}")
-        print(f"{Colors.GRN}[OK] {Colors.islamic_style('But remember, use responsibly with Allah\\'s guidance')}{Colors.END}\n")
+        message = "But remember, use responsibly with Allah's guidance"
+print(f"{Colors.GRN}[OK] {Colors.islamic_style(message)}{Colors.END}\n")
     
     def create_all_directories(self):
         """Create all directories with hacker style output"""
